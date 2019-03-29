@@ -29,7 +29,6 @@ RUN \
 # install build packages	
 	\
 	&& apk add --no-cache --virtual=nginx_build \
-		curl \
 		gcc \
 		gd-dev \
 		geoip-dev \
@@ -47,8 +46,8 @@ RUN \
 	\
 	&& mkdir -p \
 		/usr/src/nginx \
-	&& curl -o \
-	/tmp/nginx.tar.gz -L \
+	&& wget -O \
+	/tmp/nginx.tar.gz \
 	"https://nginx.org/download/nginx-${NGINX_VER}.tar.gz" \
 	&& tar xf \
 	/tmp/nginx.tar.gz -C \
@@ -223,7 +222,6 @@ RUN \
 		argon2-dev \
 		bzip2-dev \
 		coreutils \
-		curl \
 		curl-dev \
 		freetype-dev \
 		icu-dev \
@@ -242,8 +240,8 @@ RUN \
 # fetch source
 	\
 	&& set -ex \
-	&& curl -o \
-	/usr/src/php.tar.xz -L \
+	&& wget -O \
+	/usr/src/php.tar.xz \
 	"$PHP_URL" \
 	\
 # build package
@@ -351,7 +349,6 @@ RUN \
 
 ######## python section ##########
 
-ARG FAIL2BAN_BRANCH
 ARG PYTHON_VER
 ARG PYTHON_PIP_VERSION
 
@@ -367,7 +364,6 @@ RUN \
 	apk add --no-cache --virtual=python_build \
 		bzip2-dev \
 		coreutils \
-		curl \
 		dpkg-dev dpkg \
 		expat-dev \
 		findutils \
@@ -395,8 +391,8 @@ RUN \
 	\
 	&& mkdir -p \
 		/usr/src/python \
-	&& curl -o \
-	/tmp/python.tar.xz -L \
+	&& wget -O \
+	/tmp/python.tar.xz \
 	"https://www.python.org/ftp/python/${PYTHON_VER%%[a-z]*}/Python-${PYTHON_VER}.tar.xz" \
 	&& tar xf \
 	/tmp/python.tar.xz -C \
@@ -416,19 +412,6 @@ RUN \
 	EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000" \
 	&& make install \
 	\
-# build fail2ban package
-	\
-	&& mkdir -p \
-		/tmp/fail2ban-src \
-	&& curl -o \
-	/tmp/fail2ban.tar.gz -L \
-	"https://github.com/fail2ban/fail2ban/archive/${FAIL2BAN_BRANCH}.tar.gz" \
-	&& tar xf \
-	/tmp/fail2ban.tar.gz -C \
-	/tmp/fail2ban-src --strip-components=1 \
-	&& cd /tmp/fail2ban-src \
-	&& python3 setup.py install \
-	\
 # install runtime packages
 	\
 	&& find /usr/local -type f -executable -not \( -name '*tkinter*' \) -exec scanelf --needed --nobanner --format '%n#p' '{}' ';' \
@@ -446,7 +429,7 @@ RUN \
 	\
 # install pip
 	\
-	&& curl -o /tmp/get-pip.py 'https://bootstrap.pypa.io/get-pip.py' \
+	&& wget -O /tmp/get-pip.py 'https://bootstrap.pypa.io/get-pip.py' \
 	&& python /tmp/get-pip.py \
 		--disable-pip-version-check \
 		--no-cache-dir \
@@ -476,13 +459,6 @@ RUN \
 		; done \
 	; done \
 	\
-# install runtime packages
-	\
-	&& apk add --no-cache \
-		ip6tables \
-		iptables \
-		logrotate \
-	\
 # cleanup
 	\
 	&& pip --version \
@@ -494,6 +470,56 @@ RUN \
 		\) -exec rm -rf '{}' + \
 	&& apk del --purge \
 		python_build \
+	&& rm -rf \
+		/tmp/* \
+		/usr/src/* \
+		/root \
+	&& mkdir -p \
+		/root
+
+
+######## fail2ban section ##########
+
+ARG FAIL2BAN_BRANCH
+
+# environment settings
+ENV LANG C.UTF-8
+ENV PATH /usr/local/bin:$PATH
+
+# set workdir
+WORKDIR /usr/src/fail2ban
+
+RUN \
+	apk add --no-cache --virtual=fail2ban_build \
+		g++ \
+		make \
+	\
+# install runtime packages
+	\
+	&& apk add --no-cache \
+		ip6tables \
+		iptables \
+		logrotate \
+# fetch source
+	\
+	&& set -ex \
+	&& mkdir -p \
+		/usr/src/fail2ban \
+	&& wget -O \
+	/tmp/fail2ban.tar.gz \
+	"https://github.com/fail2ban/fail2ban/archive/${FAIL2BAN_BRANCH}.tar.gz" \
+	&& tar xf \
+	/tmp/fail2ban.tar.gz -C \
+	/usr/src/fail2ban --strip-components=1 \
+	\
+# build package
+	\
+	&& python3 setup.py install \
+	\
+# cleanup
+	\
+	&& apk del --purge \
+		fail2ban_build \
 	&& rm -rf \
 		/tmp/* \
 		/usr/src/* \
