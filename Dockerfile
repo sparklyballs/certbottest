@@ -152,7 +152,7 @@ RUN \
 	\
 # strip packages
 	\
-	&& for dirs in bin lib; \
+	&& for dirs in bin lib local/lib; \
 	do \
 		find /usr/"${dirs}" -type f | \
 		while read -r files ; do strip "${files}" || true \
@@ -451,12 +451,8 @@ RUN \
 	requests \
 # strip packages
 	\
-	&& PYTHON_MAJOR="${PYTHON_VER%.*}" \
-	&& for dirs in local/lib/python$PYTHON_MAJOR; \
-	do \
-		find /usr/"${dirs}" -type f | \
+	&& find /usr/local/lib -type f | \
 		while read -r files ; do strip "${files}" || true \
-		; done \
 	; done \
 	\
 # cleanup
