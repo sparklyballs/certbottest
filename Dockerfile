@@ -1,370 +1,284 @@
-# package versions
-ARG FAIL2BAN_BRANCH="0.11"
+# php package versions
 ARG IGBINARY_VER="3.0.1"
 ARG MCRYPT_VER="1.0.2"
 ARG MEMCACHED_VER="3.1.3"
-ARG NGINX_VER="1.15.9"
 ARG PHP_VER="7.3.3"
-ARG PYTHON_VER="3.7.2"
-ARG PYTHON_PIP_VERSION="19.0.3"
 
-# alpine base version
+# nginx package versions
+ARG NGINX_VER="1.15.10"
+
+# python package versions
+ARG PYTHON_VER="3.7.3"
+
+# alpine base version
 ARG ALPINE_VER="3.9"
-FROM sparklyballs/alpine-test:${ALPINE_VER}
+FROM sparklyballs/alpine-test:${ALPINE_VER} as fetch_stage
+
+############## fetch stage ##############
+
+# environment variables
+ARG NGINX_VER
+ARG PYTHON_VER
+
+# install fetch packages
+RUN \
+	apk add --no-cache \
+		bash \
+		curl \
+		xz
 
 # set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-######## nginx section ##########
-ARG NGINX_VER
-
-# set workdir
-WORKDIR /usr/src/nginx
-
-# add nginx user
+# fetch version file
 RUN \
-	addgroup -S nginx \
-	&& adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx \
-	\
-# install build packages	
-	\
-	&& apk add --no-cache --virtual=nginx_build \
+	set -ex \
+	&& curl -o \
+	/tmp/version.txt -L \
+	"https://raw.githubusercontent.com/sparklyballs/versioning/master/version.txt"
+
+# fetch source code
+# hadolint ignore=SC1091
+RUN \
+	. /tmp/version.txt \
+	&& set -ex \
+	&& mkdir -p \
+		/usr/src/fail2ban \
+		/usr/src/nginx/nginx-core \
+		/usr/src/nginx/nginx-module-cache-purge \
+		/usr/src/nginx/nginx-module-echo \
+		/usr/src/nginx/nginx-module-fancyindex \
+		/usr/src/nginx/nginx-module-headers-more \
+		/usr/src/nginx/nginx-module-lua \
+		/usr/src/nginx/nginx-module-lua-upstream \
+		/usr/src/nginx/nginx-module-nchan \
+		/usr/src/nginx/nginx-module-ngx-dev \
+		/usr/src/nginx/nginx-module-redis \
+		/usr/src/nginx/nginx-module-upload-progress \
+		/usr/src/python \
+	&& curl -o \
+		/tmp/fail2ban.tar.gz -L \
+		"https://github.com/fail2ban/fail2ban/archive/${FAIL2BAN_COMMIT}.tar.gz" \
+	&& curl -o \
+		/tmp/nginx.tar.gz -L \
+		"https://nginx.org/download/nginx-${NGINX_VER}.tar.gz" \
+	&& curl -o \
+		nginx-cache-purge.tar.gz -L \
+		"https://github.com/nginx-modules/ngx_cache_purge/archive/${NGINX_CACHE_PURGE_RELEASE}.tar.gz" \
+	&& curl -o \
+		nginx-echo.tar.gz -L \
+		"https://github.com/openresty/echo-nginx-module/archive/${NGINX_ECHO_COMMIT}.tar.gz" \
+	&& curl -o \
+		nginx-fancyindex.tar.gz -L \
+		"https://github.com/aperezdc/ngx-fancyindex/archive/${NGINX_FANCYINDEX_COMMIT}.tar.gz" \
+	&& curl -o \
+		nginx-headers-more.tar.gz -L \
+		"https://github.com/openresty/headers-more-nginx-module/archive/${NGINX_HEADERS_MORE_COMMIT}.tar.gz" \
+	&& curl -o \
+		nginx_lua.tar.gz -L \
+		"https://github.com/openresty/lua-nginx-module/archive/${NGINX_LUA_COMMIT}.tar.gz" \
+	&& curl -o \
+		nginx_lua_upstream.tar.gz -L \
+		"https://github.com/openresty/lua-upstream-nginx-module/archive/${NGINX_LUA_UPSTREAM_COMMIT}.tar.gz" \
+	&& curl -o \
+		nginx-nchan.tar.gz -L \
+		"https://github.com/slact/nchan/archive/v${NGINX_NCHAN_TAG}.tar.gz" \
+	&& curl -o \
+		nginx-ngx-dev.tar.gz -L \
+		"https://github.com/simplresty/ngx_devel_kit/archive/v${NGINX_NGX_DEVEL_RELEASE}.tar.gz" \
+	&& curl -o \
+		nginx-redis.tar.gz -L \
+		"https://github.com/openresty/redis2-nginx-module/archive/${NGINX_REDIS_COMMIT}.tar.gz" \
+	&& curl -o \
+		nginx_upload_prog.tar.gz -L \
+		"https://github.com/masterzen/nginx-upload-progress-module/archive/${NGINX_UPLOAD_COMMIT}.tar.gz" \
+	&& curl -o \
+		python.tar.xz -L \
+		"https://www.python.org/ftp/python/${PYTHON_VER%%[a-z]*}/Python-${PYTHON_VER}.tar.xz" \
+	&& tar xf \
+		/tmp/fail2ban.tar.gz -C \
+		/usr/src/fail2ban --strip-components=1 \
+	&& tar xf \
+		/tmp/nginx.tar.gz -C \
+		/usr/src/nginx/nginx-core --strip-components=1 \
+	&& tar xf \
+		nginx-cache-purge.tar.gz -C \
+		/usr/src/nginx/nginx-module-cache-purge --strip-components=1 \
+	&& tar xf \
+		nginx-echo.tar.gz -C \
+		/usr/src/nginx/nginx-module-echo --strip-components=1 \
+	&& tar xf \
+		nginx-fancyindex.tar.gz -C \
+		/usr/src/nginx/nginx-module-fancyindex --strip-components=1 \
+	&& tar xf \
+		nginx-headers-more.tar.gz -C \
+		/usr/src/nginx/nginx-module-headers-more --strip-components=1 \
+	&& tar xf \
+		nginx_lua.tar.gz -C \
+		/usr/src/nginx/nginx-module-lua --strip-components=1 \
+	&& tar xf \
+		nginx_lua_upstream.tar.gz -C \
+		/usr/src/nginx/nginx-module-lua-upstream --strip-components=1 \
+	&& tar xf \
+		nginx-nchan.tar.gz -C \
+		/usr/src/nginx/nginx-module-nchan --strip-components=1 \
+	&& tar xf \
+		nginx-ngx-dev.tar.gz -C \
+		/usr/src/nginx/nginx-module-ngx-dev --strip-components=1 \
+	&& tar xf \
+		nginx-redis.tar.gz -C \
+		/usr/src/nginx/nginx-module-redis --strip-components=1 \
+	&& tar xf \
+		nginx_upload_prog.tar.gz -C \
+		/usr/src/nginx/nginx-module-upload-progress --strip-components=1 \
+	&& tar xf \
+		python.tar.xz -C \
+		/usr/src/python --strip-components=1
+
+FROM sparklyballs/alpine-test:${ALPINE_VER} as nginx_build
+
+############## nginx build stage ##############
+
+# copy artifacts fetch stage
+COPY --from=fetch_stage /usr/src/nginx/ /usr/src/nginx/
+
+# install build packages
+RUN \
+		apk add --no-cache \
+		bash \
+		ca-certificates \
 		gcc \
 		gd-dev \
 		geoip-dev \
 		gnupg1 \
 		libc-dev \
+		libxml2-dev \
 		libxslt-dev \
 		linux-headers \
+		luajit-dev \
 		make \
 		openssl-dev \
+		paxmark \
 		pcre-dev \
 		perl-dev \
-		zlib-dev \
-	\
-# fetch source
-	\
-	&& mkdir -p \
-		/usr/src/nginx \
-	&& wget -O \
-	/tmp/nginx.tar.gz \
-	"https://nginx.org/download/nginx-${NGINX_VER}.tar.gz" \
-	&& tar xf \
-	/tmp/nginx.tar.gz -C \
-	/usr/src/nginx --strip-components=1 \
-	\
-# set config options
-	\
-	&& NGINX_CONF=( \
-	--"conf-path=/etc/nginx/nginx.conf" \
-	--"error-log-path=/var/log/nginx/error.log" \
-	--"group=nginx" \
-	--"http-client-body-temp-path=/var/cache/nginx/client_temp" \
-	--"http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp" \
-	--"http-log-path=/var/log/nginx/access.log" \
-	--"http-proxy-temp-path=/var/cache/nginx/proxy_temp" \
-	--"http-scgi-temp-path=/var/cache/nginx/scgi_temp" \
-	--"http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp" \
-	--"lock-path=/var/run/nginx.lock" \
-	--"modules-path=/usr/lib/nginx/modules" \
-	--"pid-path=/var/run/nginx.pid" \
-	--"prefix=/etc/nginx" \
-	--"sbin-path=/usr/sbin/nginx" \
-	--"user=nginx" \
-	--with-compat \
-	--with-file-aio \
-	--with-http_addition_module \
-	--with-http_auth_request_module \
-	--with-http_dav_module \
-	--with-http_flv_module \
-	--"with-http_geoip_module=dynamic" \
-	--with-http_gunzip_module \
-	--with-http_gzip_static_module \
-	--"with-http_image_filter_module=dynamic" \
-	--with-http_mp4_module \
-	--"with-http_perl_module=dynamic" \
-	--with-http_random_index_module \
-	--with-http_realip_module \
-	--with-http_secure_link_module \
-	--with-http_slice_module \
-	--with-http_ssl_module \
-	--with-http_stub_status_module \
-	--with-http_sub_module \
-	--with-http_v2_module \
-	--"with-http_xslt_module=dynamic" \
-	--with-mail \
-	--with-mail_ssl_module \
-	--with-stream \
-	--"with-stream_geoip_module=dynamic" \
-	--with-stream_realip_module \
-	--with-stream_ssl_module \
-	--with-stream_ssl_preread_module \
-	--with-threads \
-	) \
-	\
-# build package
-	\
-	&& ./configure "${NGINX_CONF[@]}" --with-debug \
-	&& make -j"$(getconf _NPROCESSORS_ONLN)" \
-	&& mv objs/nginx objs/nginx-debug \
-	&& mv objs/ngx_http_xslt_filter_module.so objs/ngx_http_xslt_filter_module-debug.so \
-	&& mv objs/ngx_http_image_filter_module.so objs/ngx_http_image_filter_module-debug.so \
-	&& mv objs/ngx_http_geoip_module.so objs/ngx_http_geoip_module-debug.so \
-	&& mv objs/ngx_http_perl_module.so objs/ngx_http_perl_module-debug.so \
-	&& mv objs/ngx_stream_geoip_module.so objs/ngx_stream_geoip_module-debug.so \
-	&& ./configure "${NGINX_CONF[@]}" \
-	&& make -j"$(getconf _NPROCESSORS_ONLN)" \
-	&& make install \
-	&& rm -rf /etc/nginx/html/ \
-	&& mkdir /etc/nginx/conf.d/ \
-	&& mkdir -p /usr/share/nginx/html/ \
-	&& install -m644 html/index.html /usr/share/nginx/html/ \
-	&& install -m644 html/50x.html /usr/share/nginx/html/ \
-	&& install -m755 objs/nginx-debug /usr/sbin/nginx-debug \
-	&& install -m755 objs/ngx_http_xslt_filter_module-debug.so /usr/lib/nginx/modules/ngx_http_xslt_filter_module-debug.so \
-	&& install -m755 objs/ngx_http_image_filter_module-debug.so /usr/lib/nginx/modules/ngx_http_image_filter_module-debug.so \
-	&& install -m755 objs/ngx_http_geoip_module-debug.so /usr/lib/nginx/modules/ngx_http_geoip_module-debug.so \
-	&& install -m755 objs/ngx_http_perl_module-debug.so /usr/lib/nginx/modules/ngx_http_perl_module-debug.so \
-	&& install -m755 objs/ngx_stream_geoip_module-debug.so /usr/lib/nginx/modules/ngx_stream_geoip_module-debug.so \
-	&& ln -s ../../usr/lib/nginx/modules /etc/nginx/modules \
-	\
-# strip packages
-	\
-	&& strip /usr/sbin/nginx* \
-	&& strip /usr/lib/nginx/modules/*.so \
-	\
-# install envsubst
-	\
-	&& apk add --no-cache gettext \
-	&& mv /usr/bin/envsubst /tmp/ \
-	\
-# install runtime packages
-	\
-	&& NGINX_RUNDEPS_VAR="$(scanelf --needed --nobanner /usr/sbin/nginx /usr/lib/nginx/modules/*.so /tmp/envsubst \
-		| awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
-		| sort -u \
-		| xargs -r apk info --installed \
-		| sort -u \
-	)" \
-	&& declare NGINX_RUNDEPS_ARR \
-	&& eval "NGINX_RUNDEPS_ARR=($NGINX_RUNDEPS_VAR)" \
-	&& apk add --no-cache "${NGINX_RUNDEPS_ARR[@]}" \
-	\
-# strip packages
-	\
-	&& for dirs in bin lib local/lib; \
-	do \
-		find /usr/"${dirs}" -type f | \
-		while read -r files ; do strip "${files}" || true \
-		; done \
-	; done \
-	\
-# cleanup
-	\
-	&& apk del --purge \
-		gettext \
-		nginx_build \
-	&& mv /tmp/envsubst /usr/local/bin/ \
-	&& rm -rf \
-		/tmp/* \
-		/usr/src/* \
-		/root \
-	&& mkdir -p \
-		/root		
-	
-######## php section ##########
-ARG IGBINARY_VER
-ARG MCRYPT_VER
-ARG MEMCACHED_VER
-ARG PHP_VER
-
-# build environment variables
-ENV PHPIZE_DEPS \
-		autoconf \
-		dpkg-dev dpkg \
-		file \
-		g++ \
-		gcc \
-		libc-dev \
-		make \
 		pkgconf \
-		re2c
-ENV PHP_INI_DIR /usr/local/etc/php
-ENV PHP_EXTRA_CONFIGURE_ARGS --enable-fpm --with-fpm-user=www-data --with-fpm-group=www-data --disable-cgi
-ENV PHP_CFLAGS="-fstack-protector-strong -fpic -fpie -O2"
-ENV PHP_CPPFLAGS="$PHP_CFLAGS"
-ENV PHP_LDFLAGS="-Wl,-O1 -Wl,--hash-style=both -pie"
-ENV PHP_URL="https://secure.php.net/get/php-${PHP_VER}.tar.xz/from/this/mirror"
+		zlib-dev
 
-# set workdir
-WORKDIR /usr/src/php
+# set shell
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# copy php build files
-COPY php_build_files/* /usr/local/bin/
+# set workdir
+WORKDIR /usr/src/nginx/nginx-core
 
-# add www-data user
-RUN \
-	addgroup -g 82 -S www-data \
-	&& adduser -u 82 -D -S -G www-data www-data \
-	\
-# create folders
-	\
-	&& mkdir -p \
-		"$PHP_INI_DIR/conf.d" \
-		/var/www/html \
-	&& chown www-data:www-data /var/www/html \
-	&& chmod 777 /var/www/html \
-	\
-# install build packages
-	\
-	&& apk add --no-cache --virtual=php_build \
-		$PHPIZE_DEPS \
-		argon2-dev \
-		bzip2-dev \
-		coreutils \
-		curl-dev \
-		freetype-dev \
-		icu-dev \
-		libedit-dev \
-		libjpeg-turbo-dev \
-		libmcrypt-dev \
-		libmemcached-dev \
-		libpng-dev \
-		libsodium-dev \
-		libxml2-dev \
-		libxpm-dev \
-		libzip-dev \
-		openssl-dev \
-		postgresql-dev \
-		sqlite-dev \
-# fetch source
-	\
-	&& set -ex \
-	&& wget -O \
-	/usr/src/php.tar.xz \
-	"$PHP_URL" \
-	\
 # build package
-	\
-	&& export \
-		CFLAGS="$PHP_CFLAGS" \
-		CPPFLAGS="$PHP_CPPFLAGS" \
-		LDFLAGS="$PHP_LDFLAGS" \
-	&& docker-php-source extract \
-	&& gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+RUN \
+	LUAJIT_INC="$(pkgconf --variable=includedir luajit)" \
+	&& LUAJIT_LIB="$(pkgconf --variable=libdir luajit)" \
+	&& export LUAJIT_INC \
+	&& export LUAJIT_LIB \
+	&& set -ex \
 	&& ./configure \
-		--build="$gnuArch" \
-		--enable-exif=shared \
-		--enable-ftp \
-		--enable-mbstring \
-		--enable-mysqlnd \
-		--enable-option-checking=fatal \
-		--with-config-file-path="$PHP_INI_DIR" \
-		--with-config-file-scan-dir="$PHP_INI_DIR/conf.d" \
-		--with-curl \
-		--with-libedit \
-		--with-mhash \
-		--with-openssl \
-		--with-password-argon2 \
-		--with-sodium=shared \
-		--with-zlib \
-		$PHP_EXTRA_CONFIGURE_ARGS \
-	&& make -j"$(nproc)" \
-	&& find . -type f -name '*.a' -delete \
-	&& make install \
-	\
-# install additional php packages
-	\
-	&& docker-php-ext-install -j"$(nproc)" bz2 \
-	&& docker-php-ext-configure gd \
-		--with-freetype-dir=/usr/include/ \
-		--with-jpeg-dir=/usr/include/ \
-	&& docker-php-ext-install -j"$(nproc)" gd \
-	&& docker-php-ext-install -j"$(nproc)" intl \
-	&& docker-php-ext-install -j"$(nproc)" mysqli \
-	&& docker-php-ext-install -j"$(nproc)" pdo_mysql \
-	&& docker-php-ext-install -j"$(nproc)" pdo_pgsql \
-	&& docker-php-ext-install -j"$(nproc)" pgsql \
-	&& docker-php-ext-install -j"$(nproc)" soap \
-	&& docker-php-ext-install -j"$(nproc)" sockets \
-	&& docker-php-ext-install -j"$(nproc)" zip \
-	\
-# install pecl packages
-	\
-	&& pecl install "igbinary-${IGBINARY_VER}" \
-	&& pecl install "mcrypt-${MCRYPT_VER}" \
-	&& pecl install "memcached-${MEMCACHED_VER}" \
-# strip packages
-	\
-	&& { find /usr/local/bin /usr/local/sbin -type f -perm +0111 -exec strip --strip-all '{}' + || true; } \
-	&& make clean \
-	\
-# copy init files
-	\
-	&& cp -v php.ini-production "$PHP_INI_DIR/php.ini" \
-	&& docker-php-source delete \
-	\
-# enable additional php extensions
-	&& docker-php-ext-enable \
-		exif \
-		gd \
-		igbinary \
-		mcrypt \
-		memcached \
-		opcache \
-		sodium \
-	\
-# install runtime packages
-	\
-	&& PHP_RUNDEPS_VAR="$( \
-		scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
-		| tr ',' '\n' \
-		| sort -u \
-		| awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-cache-purge \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-echo \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-fancyindex \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-headers-more \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-lua \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-lua-upstream \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-nchan \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-ngx-dev \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-redis \
+		--add-dynamic-module=/usr/src/nginx/nginx-module-upload-progress \
+		--conf-path=/etc/nginx/nginx.conf \
+		--error-log-path=/var/log/nginx/error.log \
+		--group=nginx \
+		--http-client-body-temp-path=/var/cache/nginx/client_temp \
+		--http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp \
+		--http-log-path=/var/log/nginx/access.log \
+		--http-proxy-temp-path=/var/cache/nginx/proxy_temp \
+		--http-scgi-temp-path=/var/cache/nginx/scgi_temp \
+		--http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp\
+		--lock-path=/var/run/nginx.lock \
+		--modules-path=/usr/lib/nginx/modules \
+		--pid-path=/var/run/nginx.pid \
+		--prefix=/etc/nginx \
+		--sbin-path=/usr/sbin/nginx \
+		--user=nginx \
+		--with-compat \
+		--with-file-aio \
+		--with-http_addition_module \
+		--with-http_auth_request_module \
+		--with-http_dav_module \
+		--with-http_degradation_module \
+		--with-http_flv_module \
+		--with-http_geoip_module=dynamic \
+		--with-http_gunzip_module \
+		--with-http_gzip_static_module \
+		--with-http_image_filter_module=dynamic \
+		--with-http_mp4_module \
+		--with-http_perl_module=dynamic \
+		--with-http_random_index_module \
+		--with-http_realip_module \
+		--with-http_secure_link_module \
+		--with-http_slice_module \
+		--with-http_ssl_module \
+		--with-http_stub_status_module \
+		--with-http_sub_module \
+		--with-http_v2_module \
+		--with-http_xslt_module=dynamic \
+		--with-mail \
+		--with-mail_ssl_module \
+		--with-stream \
+		--with-stream_geoip_module=dynamic \
+		--with-stream_realip_module \
+		--with-stream_ssl_module \
+		--with-stream_ssl_preread_module \
+		--with-threads \
+	&& make -j"$(getconf _NPROCESSORS_ONLN)" \
+	&& make DESTDIR=/build/nginx install \
+	&& rm -rf /build/nginx/etc/nginx/html/ \
+	&& mkdir /build/nginx/etc/nginx/conf.d/ \
+	&& mkdir -p /build/nginx/usr/share/nginx/html/ \
+	&& install -m644 html/index.html /build/nginx/usr/share/nginx/html/ \
+	&& install -m644 html/50x.html /build/nginx/usr/share/nginx/html/
+
+# install envsubst
+RUN \
+	mkdir -p \
+		/build/nginx/bin \
+	&& apk add --no-cache \
+		gettext \
+	&& mv /usr/bin/envsubst /build/nginx/bin/
+
+# determine runtime packages
+RUN \
+	set -ex \
+	&& nginx_deps="$( \
+		scanelf --needed --nobanner /build/nginx/usr/sbin/nginx /build/nginx/usr/lib/nginx/modules/*.so /build/nginx/bin/envsubst \
+			| awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+			| sort -u \
+			| xargs -r apk info --installed \
+			| sort -u \
 	)" \
-	&& declare PHP_RUNDEPS_ARR \
-	&& eval "PHP_RUNDEPS_ARR=($PHP_RUNDEPS_VAR)" \
-	&& apk add --no-cache "${PHP_RUNDEPS_ARR[@]}" \
-	\
-# strip packages
-	\
-	&& for dirs in local/bin local/lib; \
-	do \
-		find /usr/"${dirs}" -type f | \
-		while read -r files ; do strip "${files}" || true \
-		; done \
-	; done \
-	\
-# cleanup
-	\
-	&& apk del --purge \
-		php_build \
-	&& rm -rf \
-		/tmp/* \
-		/usr/local/lib/php/build \
-		/usr/src/* \
-		/root \
-	&& mkdir -p \
-		/root
+	&& printf "%s" "$nginx_deps" > /build/runtime-packages \
+	&& echo -en "\n" >> /build/runtime-packages
 
-######## python section ##########
+FROM sparklyballs/alpine-test:${ALPINE_VER} as python_build
 
-ARG PYTHON_VER
-ARG PYTHON_PIP_VERSION
+############## python build stage ##############
 
-# environment settings
-ENV LANG C.UTF-8
-ENV PATH /usr/local/bin:$PATH
-
-# set workdir
-WORKDIR /usr/src/python
+# copy artifacts fetch and nginx build stages
+COPY --from=fetch_stage /usr/src/python /usr/src/python
+COPY --from=nginx_build /build/runtime-packages /build/runtime-packages
 
 # install build packages
 RUN \
-	apk add --no-cache --virtual=python_build \
+	apk add --no-cache \
+		bash \
 		bzip2-dev \
 		coreutils \
-		dpkg-dev dpkg \
+		curl \
+		dpkg-dev \
+		dpkg \
 		expat-dev \
 		findutils \
 		gcc \
@@ -385,140 +299,177 @@ RUN \
 		tk-dev \
 		util-linux-dev \
 		xz-dev \
-		zlib-dev \
-	\
-# fetch source
-	\
-	&& mkdir -p \
-		/usr/src/python \
-	&& wget -O \
-	/tmp/python.tar.xz \
-	"https://www.python.org/ftp/python/${PYTHON_VER%%[a-z]*}/Python-${PYTHON_VER}.tar.xz" \
-	&& tar xf \
-	/tmp/python.tar.xz -C \
-	/usr/src/python --strip-components=1 \
-	\
-# build package
-	\
+		zlib-dev
+
+# set workdir
+WORKDIR /usr/src/python
+
+# set shell
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# build package
+RUN \
+	set -ex \
 	&& gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
 	&& ./configure \
 		--build="$gnuArch" \
 		--enable-loadable-sqlite-extensions \
 		--enable-shared \
-		--without-ensurepip \
 		--with-system-expat \
 		--with-system-ffi \
 	&& make -j "$(nproc)" \
 	EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000" \
-	&& make install \
-	\
-# install runtime packages
-	\
-	&& find /usr/local -type f -executable -not \( -name '*tkinter*' \) -exec scanelf --needed --nobanner --format '%n#p' '{}' ';' \
+	&& make -j "$(nproc)" DESTDIR=/build/python install
+
+# determine runtime packages
+RUN \
+	set -ex \
+	&& python_deps="$(find /build/python/usr/local -type f \
+		-executable -not \( -name '*tkinter*' \) \
+		-exec scanelf --needed --nobanner --format '%n#p' '{}' ';' \
 		| tr ',' '\n' \
 		| sort -u \
-		| awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
-		| xargs -rt apk add --no-cache --virtual .python_rundeps \
-	\
-# symlinks that are expected to exist
-	\
-	&& ln -s /usr/local/bin/idle3 /usr/local/bin/idle \
-	&& ln -s /usr/local/bin/pydoc3 /usr/local/bin/pydoc \
-	&& ln -s /usr/local/bin/python3 /usr/local/bin/python \
-	&& ln -s /usr/local/bin/python3-config /usr/local/bin/python-config \
-	\
-# install pip
-	\
-	&& wget -O /tmp/get-pip.py 'https://bootstrap.pypa.io/get-pip.py' \
-	&& python /tmp/get-pip.py \
-		--disable-pip-version-check \
-		--no-cache-dir \
-		"pip==${PYTHON_PIP_VERSION}" \
-	\
-# install pip packages
-	&& pip install -U \
-	certbot-dns-cloudflare \
-	certbot-dns-cloudxns \
-	certbot-dns-digitalocean \
-	certbot-dns-dnsimple \
-	certbot-dns-dnsmadeeasy \
-	certbot-dns-google \
-	certbot-dns-luadns \
-	certbot-dns-nsone \
-	certbot-dns-ovh \
-	certbot-dns-rfc2136 \
-	certbot-dns-route53 \
-	requests \
+		| awk 'system("[ -e /build/python/usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+	)" \
+	&& printf "%s" "$python_deps" >> /build/python-packages \
+	&& printf "%s" "$python_deps" >> /build/runtime-packages \
+	&& echo -en "\n" >> /build/runtime-packages \
+	&& sed -i "/libpython/d" /build/python-packages \
+	&& sed -i "/libpython/d" /build/runtime-packages
+
+FROM sparklyballs/alpine-test:${ALPINE_VER} as python_packages
+
+# copy artifacts fetch, and python build stages
+COPY --from=fetch_stage /usr/src/fail2ban /usr/src/fail2ban
+COPY --from=python_build /build/python/ /
+COPY --from=python_build /build/python-packages /build/python-packages
+
+# install python deps
+RUN \
+	set -ex \
+	&& while read -r line; \
+		do apk add --no-cache "$line"; \
+	done < /build/python-packages
+
+# install build packages
+RUN \
+	apk add --no-cache \
+		curl \
+		gcc \
+		libffi-dev \
+		linux-headers \
+		musl-dev \
+		openssl-dev
+
+# install pip packages
+RUN \
+	pip3 install \
+	--no-warn-script-location \
+	--prefix=/build/certbot  \
+		certbot-dns-cloudflare \
+		certbot-dns-cloudxns \
+		certbot-dns-digitalocean \
+		certbot-dns-dnsimple \
+		certbot-dns-dnsmadeeasy \
+		certbot-dns-google \
+		certbot-dns-luadns \
+		certbot-dns-nsone \
+		certbot-dns-ovh \
+		certbot-dns-rfc2136 \
+		certbot-dns-route53 \
+		requests
+
+# set workdir
+WORKDIR /usr/src/fail2ban
+
+# install fail2ban
+RUN \
+	set -ex \
+	&& python3 setup.py install --root /build/fail2ban
+	
+
+FROM sparklyballs/alpine-test:${ALPINE_VER} as strip_stage
+
+############## strip stage ##############
+
+# copy artifacts build stages
+COPY --from=nginx_build /build/nginx/ /build/all/
+COPY --from=python_build /build/runtime-packages /build/all/
+COPY --from=python_build /build/python/ /build/all/
+COPY --from=python_packages /build/certbot/bin/ /build/all/bin/
+COPY --from=python_packages /build/certbot/lib/ /build/all/usr/local/lib/
+COPY --from=python_packages /build/fail2ban/ /build/all/
+
+# sort runtime packages
+RUN \
+	set -ex \
+	&& sort -u -o /build/all/runtime-packages /build/all/runtime-packages
+
+# install strip packages
+RUN \
+	apk add --no-cache \
+		bash \
+		binutils
+
+# set shell
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # strip packages
-	\
-	&& find /usr/local/lib -type f | \
+RUN \
+	set -ex \
+	&& strip /build/all/usr/sbin/nginx* \
+	&& strip /build/all/usr/lib/nginx/modules/*.so \
+	&& find /build/all/usr/local/lib -type f | \
 		while read -r files ; do strip "${files}" || true \
 	; done \
-	\
-# cleanup
-	\
-	&& pip --version \
-	&& find /usr/local -depth \
+	&& find /build/all/usr/local -depth \
 		\( \
 		\( -type d -a \( -name test -o -name tests \) \) \
 		-o \
 		\( -type f -a \( -name '*.pyc' -o -name '*.pyo' \) \) \
 		\) -exec rm -rf '{}' + \
-	&& apk del --purge \
-		python_build \
 	&& rm -rf \
-		/tmp/* \
-		/usr/src/* \
-		/root \
-	&& mkdir -p \
-		/root
+		/build/all/etc/nginx/koi-* \
+		/build/all/etc/nginx/win-utf
 
+FROM sparklyballs/alpine-test:${ALPINE_VER}
 
-######## fail2ban section ##########
+############## runtime stage ##############
 
-ARG FAIL2BAN_BRANCH
+# copy artifacts strip stage
+COPY --from=strip_stage /build/all/ /
 
 # environment settings
+ENV DHLEVEL=2048 ONLY_SUBDOMAINS=false AWS_CONFIG_FILE=/config/dns-conf/route53.ini
 ENV LANG C.UTF-8
 ENV PATH /usr/local/bin:$PATH
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
 
-# set workdir
-WORKDIR /usr/src/fail2ban
-
+# add users for packages
 RUN \
-	apk add --no-cache --virtual=fail2ban_build \
-		g++ \
-		make \
+	addgroup -S nginx \
+	&& adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx \
 	\
-# install runtime packages
+# create symlinks
+	\
+	&& ln -s /usr/lib/nginx/modules /etc/nginx/modules \
+	&& ln -s /usr/local/bin/pip3 /usr/local/bin/pip \
+	&& ln -s /usr/local/bin/idle3 /usr/local/bin/idle \
+	&& ln -s /usr/local/bin/pydoc3 /usr/local/bin/pydoc \
+	&& ln -s /usr/local/bin/python3 /usr/local/bin/python \
+	&& ln -s /usr/local/bin/python3-config /usr/local/bin/python-config \
+	\
+# install runtime packages
 	\
 	&& apk add --no-cache \
-		ip6tables \
-		iptables \
+		apache2-utils \
+		binutils \
+		curl \
+		git \
 		logrotate \
-# fetch source
-	\
+		openssl \
 	&& set -ex \
-	&& mkdir -p \
-		/usr/src/fail2ban \
-	&& wget -O \
-	/tmp/fail2ban.tar.gz \
-	"https://github.com/fail2ban/fail2ban/archive/${FAIL2BAN_BRANCH}.tar.gz" \
-	&& tar xf \
-	/tmp/fail2ban.tar.gz -C \
-	/usr/src/fail2ban --strip-components=1 \
-	\
-# build package
-	\
-	&& python3 setup.py install \
-	\
-# cleanup
-	\
-	&& apk del --purge \
-		fail2ban_build \
-	&& rm -rf \
-		/tmp/* \
-		/usr/src/* \
-		/root \
-	&& mkdir -p \
-		/root
+	&& while read -r line; \
+		do apk add --no-cache "$line"; \
+	done < /runtime-packages
+
