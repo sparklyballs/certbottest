@@ -4,9 +4,6 @@ ARG MCRYPT_VER="1.0.2"
 ARG MEMCACHED_VER="3.1.3"
 ARG PHP_VER="7.3.3"
 
-# nginx package versions
-ARG NGINX_VER="1.15.10"
-
 # python package versions
 ARG PYTHON_VER="3.7.3"
 
@@ -61,7 +58,7 @@ RUN \
 		"https://github.com/fail2ban/fail2ban/archive/${FAIL2BAN_COMMIT}.tar.gz" \
 	&& curl -o \
 		/tmp/nginx.tar.gz -L \
-		"https://nginx.org/download/nginx-${NGINX_VER}.tar.gz" \
+		"https://nginx.org/download/nginx-${NGINX_TAG}.tar.gz" \
 	&& curl -o \
 		nginx-cache-purge.tar.gz -L \
 		"https://github.com/nginx-modules/ngx_cache_purge/archive/${NGINX_CACHE_PURGE_RELEASE}.tar.gz" \
