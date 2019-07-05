@@ -2,16 +2,16 @@
 ARG IGBINARY_VER="3.0.1"
 ARG MCRYPT_VER="1.0.2"
 ARG MEMCACHED_VER="3.1.3"
-ARG PHP_VER="7.3.3"
+ARG PHP_VER="7.3.6"
 
 # nginx package versions
-ARG NGINX_VER="1.16.0"
+ARG NGINX_VER="1.17.1"
 
 # python package versions
 ARG PYTHON_VER="3.7.3"
 
 # alpine base version
-ARG ALPINE_VER="3.9"
+ARG ALPINE_VER="3.10"
 FROM sparklyballs/alpine-test:${ALPINE_VER} as fetch_stage
 
 ############## fetch stage ##############
